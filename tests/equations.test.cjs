@@ -146,7 +146,7 @@ for (const [name, equations, unknowns, values, expected, extra] of [
 
 for (const raw of ['', 'abc', '1/0', 'sqrt(-1)', '1e101', '__import__("os")']) {
   test(`invalid known value: ${JSON.stringify(raw)}`, async () => {
-    await assert.rejects(solve(['q=a'], ['q'], {a:raw}), /finite value for a/);
+    await assert.rejects(solve(['q=a'], ['q'], {a:raw}), /finite value for `a` matching/);
   });
 }
 test('absolute-value systems reject impossible offsets and respect positive domains', async () => {
@@ -156,7 +156,7 @@ test('absolute-value systems reject impossible offsets and respect positive doma
   assert.equal((await solve(['x+y=2','abs(x-y)=-1'], ['x','y'])).status, 'no-solution');
 });
 for (const [name, equations, unknowns, values, extra, error] of [
-  ['missing known', ['q=a+b'], ['q'], {a:'1'}, {}, /value for b/],
+  ['missing known', ['q=a+b'], ['q'], {a:'1'}, {}, /value for `b`/],
   ['zero denominator', ['q=a/b'], ['q'], {a:'1',b:'0'}, {}, /division by zero/],
   ['zero negative power', ['q=a^-1'], ['q'], {a:'0'}, {}, /division by zero/],
   ['positive known zero', ['q=a'], ['q'], {a:'0'}, {metadata:{a:{domain:'positive'}}}, /finite value/],

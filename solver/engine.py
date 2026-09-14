@@ -167,7 +167,7 @@ def handle(request):
             if symbol.is_integer and value.is_integer is not True:
                 raise ValueError()
         except Exception:
-            raise ValueError(f'Enter a finite value for {name} matching its domain. Fractions and scientific notation are supported.') from None
+            raise ValueError(f'Enter a finite value for `{name}` matching its domain. Fractions and scientific notation are supported.') from None
         values[symbol] = value
     for denominator in parser.denominators:
         if s.simplify(denominator.subs(values)) == 0:
@@ -182,7 +182,7 @@ def handle(request):
             gp = Parser()
             value = s.simplify(plain(gp.parse(request.get('guesses', {}).get(name, ''))))
             if gp.symbols or not finite(value):
-                raise ValueError(f'Enter a finite starting guess for {name}.')
+                raise ValueError(f'Enter a finite starting guess for `{name}`.')
             guesses.append(value)
         try:
             answer = s.nsolve(expressions, unknowns, guesses, prec=30, maxsteps=100)
