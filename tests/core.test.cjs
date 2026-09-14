@@ -77,7 +77,7 @@ test('nonlinear real and complex roots, domains and nonlinear systems', async ()
 });
 test('original denominators and required values cannot be simplified away', async () => {
   await assert.rejects(solve(['q=x/d'], ['x'], { q:'2', d:'0' }), /division by zero/);
-  await assert.rejects(solve(['q=x/d'], ['x'], { q:'2' }), /value for d/);
+  await assert.rejects(solve(['q=x/d'], ['x'], { q:'2' }), /value for `d`/);
   assert.equal((await solve(['x/x=0'], ['x'])).status, 'no-solution');
   assert.equal((await solve(['(x^2-1)/(x-1)=2'], ['x'])).status, 'no-solution');
 });

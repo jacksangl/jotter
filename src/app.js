@@ -31,6 +31,7 @@ const copyText = text => api?.copy ? api.copy(text) : navigator.clipboard.writeT
 const byId = id => state.library.find(eq => eq.id === id);
 const metadata = vars => Object.fromEntries(vars.map(v => [v.key, v]));
 const tex = (element, source, display = false) => katex.render(source, element, { displayMode: display, throwOnError: false, trust: false, maxExpand: 200, maxSize: 10 });
+const symbolTex = v => v.tex || v.key.replace(/_(\w+)/, '_{$1}');
 function node(tag, className = '', text = '') { const e = document.createElement(tag); e.className = className; e.textContent = text; return e; }
 function option(value, text) { const e = node('option', '', text); e.value = value; return e; }
 function dropdownOptions(select, options) {
@@ -41,27 +42,15 @@ function dropdownOptions(select, options) {
 }
 function notify(message, error = false) { $('#notice-message').textContent = message; $('#notice').hidden = !message; $('#notice').classList.toggle('error', error); }
 async function action(work) { try { return await work(); } catch (error) { notify(error.message, true); } }
-function renderMessage(container, message, vars = []) {
-  const paragraph = node('p');
-  const known = [...vars].sort((a, b) => b.key.length - a.key.length);
-  if (!known.length) paragraph.textContent = message;
-  else {
-    const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const pattern = new RegExp(`\\b(?:${known.map(v => escapeRegex(v.key)).join('|')})\\b`, 'g');
-    let cursor = 0;
-    for (const match of message.matchAll(pattern)) {
-      paragraph.append(document.createTextNode(message.slice(cursor, match.index)));
-      const symbol = node('span');
-      const variable = known.find(v => v.key === match[0]);
-      tex(symbol, variable.tex || variable.key.replace(/_(\w+)/, '_{$1}'));
-      paragraph.append(symbol);
-      cursor = match.index + match[0].length;
-    }
-    paragraph.append(document.createTextNode(message.slice(cursor)));
+// The solver wraps variable names in backticks so only those become symbols.
+function showError(container, message, vars = []) {
+  const known = metadata(vars), paragraph = node('p');
+  for (const [index, part] of message.split('`').entries()) {
+    if (index % 2 === 0 || !Object.hasOwn(known, part)) { paragraph.append(document.createTextNode(part)); continue; }
+    const symbol = node('span'); tex(symbol, symbolTex(known[part])); paragraph.append(symbol);
   }
   container.replaceChildren(paragraph);
 }
-function showError(container, message, vars) { renderMessage(container, message, vars); }
 function invalidateResult(system = false) { $(`#${system ? 'system' : 'single'}-result`).textContent = 'Values changed. Solve to update the result.'; scheduleWorksheetSave(); }
 function showTab(name) {
   if (name === 'equation' || name === 'system') worksheetMode = name;
@@ -134,7 +123,7 @@ $('#class-filter').addEventListener('change', renderLibrary);
 function variableRows(container, vars, unknowns, values, changed) {
   container.replaceChildren(...vars.map(v => {
     const row = node('div', `var-row${unknowns.has(v.key) ? ' is-unknown' : ''}`);
-    const symbol = node('label', 'var-sym'); tex(symbol, v.tex || v.key.replace(/_(\w+)/, '_{$1}'));
+    const symbol = node('label', 'var-sym'); tex(symbol, symbolTex(v));
     const equals = node('div', 'var-eq', '='); equals.setAttribute('aria-hidden', 'true');
     const cell = node('div');
     if (unknowns.has(v.key)) cell.append(node('span', 'var-unknown', '? unknown · solve for this'));
@@ -219,7 +208,7 @@ function renderEquation() {
   $('#eq-name').textContent = eq.name; $('#eq-context').textContent = [subjects[eq.subject], eq.klass].filter(Boolean).join(' / ');
   dropdownOptions($('#solve-for'), eq.vars.map(v => {
     const item = option(v.key, ''); item.setAttribute('aria-label', v.key);
-    const symbol = node('span'); tex(symbol, v.tex || v.key.replace(/_(\w+)/, '_{$1}'));
+    const symbol = node('span'); tex(symbol, symbolTex(v));
     item.append(symbol); return item;
   }));
   renderUnknown();
@@ -237,7 +226,7 @@ function captureEditorVars() {
 }
 function renderEditorVars(vars) {
   $('#ed-vars tbody').replaceChildren(...vars.map(v => {
-    const row = node('tr'), sym = node('td', 'var-sym'); row.dataset.key = v.key; sym.title = v.key; tex(sym, v.tex || v.key.replace(/_(\w+)/, '_{$1}')); row.append(sym);
+    const row = node('tr'), sym = node('td', 'var-sym'); row.dataset.key = v.key; sym.title = v.key; tex(sym, symbolTex(v)); row.append(sym);
     for (const [field, label, limit] of [['tex', 'display LaTeX', 120], ['unit', 'unit', 40], ['desc', 'description', 200]]) {
       const td = node('td'), input = node('input', 'input'); input.value = v[field] || ''; input.maxLength = limit;
       input.setAttribute('aria-label', `${v.key} ${label}`); td.append(input); row.append(td);
@@ -390,7 +379,7 @@ function renderSystem() {
     const section = node('div', 'mapping-section'); section.append(node('h3', '', `${index + 1}. ${eq.name}`));
     eq.vars.forEach(v => {
       const label = node('label', 'mapping-row'), symbol = node('span'), input = node('input', 'input');
-      tex(symbol, v.tex || v.key.replace(/_(\w+)/, '_{$1}')); label.append(symbol, node('span', 'muted', '→'));
+      tex(symbol, symbolTex(v)); label.append(symbol, node('span', 'muted', '→'));
       input.value = state.mappings[index]?.[v.key] || v.key; input.maxLength = 40;
       input.setAttribute('aria-label', `Equation ${index + 1} shared symbol for ${v.key}`);
       input.addEventListener('input', () => { state.mappings[index] ||= {}; state.mappings[index][v.key] = input.value.trim(); invalidateResult(true); });
@@ -425,7 +414,7 @@ function renderGuesses(system) {
 for (const system of [false, true]) $(`#${system ? 'system' : 'single'}-numeric`).addEventListener('change', () => { renderGuesses(system); invalidateResult(system); });
 function showResult(container, result, vars) {
   container.replaceChildren(node('div', 'result-label', 'Result'));
-  if (result.message) { const message = node('div'); renderMessage(message, result.message, vars); container.append(message); }
+  if (result.message) container.append(node('p', '', result.message));
   if (result.setLatex) { const equation = node('div', 'result-formula'); tex(equation, result.setLatex, true); container.append(equation); }
   for (const [index, answer] of (result.answers || []).entries()) {
     if (result.answers.length > 1) container.append(node('h3', '', `Solution ${index + 1}`));
