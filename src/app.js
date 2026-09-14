@@ -411,7 +411,7 @@ function showResult(container, result, vars) {
     for (const value of answer.variables) {
       const v = vars.find(v => v.key === value.key), line = node('div', 'answer-row'), formula = node('span');
       tex(formula, `${v?.tex || value.key} = ${value.latex}`);
-      line.append(formula, node('span', 'muted', [value.decimal, v?.unit].filter(Boolean).join(' ')));
+      line.append(formula, node('span', 'muted', [formatDecimal(value.decimal), v?.unit].filter(Boolean).join(' ')));
       const copy = node('button', 'btn btn-ghost btn-sm', 'Copy'); copy.setAttribute('aria-label', `Copy ${value.key} value`);
       copy.addEventListener('click', () => action(async () => { await copyText(value.decimal); notify(`Copied ${value.key}.`); }));
       line.append(copy); container.append(line);
