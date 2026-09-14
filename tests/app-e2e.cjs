@@ -92,6 +92,7 @@ app.whenReady().then(async () => {
   await type('#var-rows-I', 'abc');
   await click('#solve-btn');
   await waitFor('/finite value for I/.test(document.querySelector("#single-result").textContent)', 'validation message');
+  assert.ok(await run('document.querySelector("#single-result .katex")'), 'validation symbols render as LaTeX');
   assert.equal(JSON.parse(fs.readFileSync(historyFile, 'utf8')).entries.length, 2, 'invalid solve is not recorded');
   passed.push('invalid value reports an error without recording history');
 

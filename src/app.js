@@ -41,6 +41,27 @@ function dropdownOptions(select, options) {
 }
 function notify(message, error = false) { $('#notice-message').textContent = message; $('#notice').hidden = !message; $('#notice').classList.toggle('error', error); }
 async function action(work) { try { return await work(); } catch (error) { notify(error.message, true); } }
+function renderMessage(container, message, vars = []) {
+  const paragraph = node('p');
+  const known = [...vars].sort((a, b) => b.key.length - a.key.length);
+  if (!known.length) paragraph.textContent = message;
+  else {
+    const escapeRegex = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`\\b(?:${known.map(v => escapeRegex(v.key)).join('|')})\\b`, 'g');
+    let cursor = 0;
+    for (const match of message.matchAll(pattern)) {
+      paragraph.append(document.createTextNode(message.slice(cursor, match.index)));
+      const symbol = node('span');
+      const variable = known.find(v => v.key === match[0]);
+      tex(symbol, variable.tex || variable.key.replace(/_(\w+)/, '_{$1}'));
+      paragraph.append(symbol);
+      cursor = match.index + match[0].length;
+    }
+    paragraph.append(document.createTextNode(message.slice(cursor)));
+  }
+  container.replaceChildren(paragraph);
+}
+function showError(container, message, vars) { renderMessage(container, message, vars); }
 function invalidateResult(system = false) { $(`#${system ? 'system' : 'single'}-result`).textContent = 'Values changed. Solve to update the result.'; scheduleWorksheetSave(); }
 function showTab(name) {
   if (name === 'equation' || name === 'system') worksheetMode = name;
@@ -404,7 +425,7 @@ function renderGuesses(system) {
 for (const system of [false, true]) $(`#${system ? 'system' : 'single'}-numeric`).addEventListener('change', () => { renderGuesses(system); invalidateResult(system); });
 function showResult(container, result, vars) {
   container.replaceChildren(node('div', 'result-label', 'Result'));
-  if (result.message) container.append(node('p', '', result.message));
+  if (result.message) { const message = node('div'); renderMessage(message, result.message, vars); container.append(message); }
   if (result.setLatex) { const equation = node('div', 'result-formula'); tex(equation, result.setLatex, true); container.append(equation); }
   for (const [index, answer] of (result.answers || []).entries()) {
     if (result.answers.length > 1) container.append(node('h3', '', `Solution ${index + 1}`));
@@ -421,10 +442,12 @@ function showResult(container, result, vars) {
 async function solve(system) {
   if (state.busy) return;
   const prefix = system ? 'system' : 'single', resultBox = $(`#${prefix}-result`);
+  let vars = [];
   try {
     const eq = byId(state.selected);
     if (!system && !eq) throw new Error('Choose an equation.');
     const data = system ? systemData() : { equations: [eq.formula], vars: eq.vars };
+    vars = data.vars;
     if (system && data.equations.length < 2) throw new Error('Choose at least two equations.');
     const unknowns = system ? [...state.systemUnknowns] : [state.unknown];
     if (!unknowns.length || unknowns.some(v => !v)) throw new Error('Choose at least one unknown.');
@@ -441,7 +464,7 @@ async function solve(system) {
     showResult(resultBox, result, data.vars);
     if (result.historyEntry) calculationHistory.add(result.historyEntry);
     if (result.historyError) notify(result.historyError, true);
-  } catch (error) { resultBox.textContent = error.message; }
+  } catch (error) { showError(resultBox, error.message, vars); }
   finally {
     state.busy = false; $$('input, select, textarea, button').forEach(e => e.disabled = false);
     $('#add-slot').disabled = state.slots.length >= 8; $$('[data-cancel]').forEach(button => button.hidden = true);
