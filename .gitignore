@@ -5,3 +5,4 @@ out/
 __pycache__/
 *.spec
 .DS_Store
+.claude/worktrees/
